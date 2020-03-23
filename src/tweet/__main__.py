@@ -1,29 +1,61 @@
 import tweet
 import pandas as pd
-from dotenv import load_dotenv
+import json
 import os
 from tqdm import tqdm
 
-load_dotenv('resources/.env')
+class ApiConfig:
+    def __init__(self, filename):
+        with open(filename) as f:
+            self.keys = json.load(f)
 
-CONSUMER_KEY = os.environ.get('CONSUMER_KEY') 
-CONSUMER_SECRET = os.environ.get('CONSUMER_SECRET') 
-ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN') 
-ACCESS_TOKEN_SECRET = os.environ.get('ACCESS_TOKEN_SECRET') 
+        self.slot = 0
+
+    def get_key(self):
+        ck = self.keys['oauth2'][self.slot]['CONSUMER_KEY']
+        cs = self.keys['oauth2'][self.slot]['CONSUMER_SECRET']
+        at = self.keys['oauth2'][self.slot]['ACCESS_TOKEN']
+        ats = self.keys['oauth2'][self.slot]['ACCESS_TOKEN_SECRET']
+
+        if self.slot == len(self.keys)-1:
+            self.slot = 0
+        else:
+            self.slot += 1
+
+        return {
+            'CONSUMER_KEY': ck,
+            'CONSUMER_SECRET': cs,
+            'ACCESS_TOKEN': at,
+            'ACCESS_TOKEN_SECRET': ats
+        }
 
 def main():
-    wrapper = tweet.TweepyWrapper(CONSUMER_KEY, CONSUMER_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
-    #tweets = wrapper.fetch_by_query(q='hikakin', count=100)
-    #tweets = wrapper.fetch_by_user_id(user_id='730451538657697793', count=1000)
+    api_config = ApiConfig('./resources/twitter.json')
+    key = api_config.get_key()
+    wrapper = tweet.TweepyWrapper(
+            key['CONSUMER_KEY'], 
+            key['CONSUMER_SECRET'], 
+            key['ACCESS_TOKEN'], 
+            key['ACCESS_TOKEN_SECRET'])
+
     followers = wrapper.fetch_follower(user_id='730451538657697793')
     ff = []
 
     for follower in tqdm(followers):
-        friends = wrapper.fetch_friend_id(user_id=follower['id'])
-        for friend in friends:
-            friend['follower_id'] = follower['id']
+        if follower['friends_count'] < 5000:
+            key = api_config.get_key()
+            wrapper = tweet.TweepyWrapper(
+                key['CONSUMER_KEY'], 
+                key['CONSUMER_SECRET'], 
+                key['ACCESS_TOKEN'], 
+                key['ACCESS_TOKEN_SECRET'])
 
-        ff += friends
+            friends = wrapper.fetch_friend_id(user_id=follower['id'])
+
+            for friend in friends:
+                friend['follower_id'] = follower['id']
+
+            ff += friends
 
     df = pd.DataFrame(ff)
     if df.to_csv('../csv/ff.csv', index=None):
