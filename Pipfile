@@ -9,6 +9,7 @@ verify_ssl = true
 tweepy = "*"
 pandas = "==0.24.1"
 python-dotenv = "*"
+tqdm = "*"
 
 [requires]
 python_version = "3.6"

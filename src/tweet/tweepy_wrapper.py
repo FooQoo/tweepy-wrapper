@@ -34,6 +34,40 @@ class TweepyWrapper:
             print(traceback.format_exc())
 
         return tweets
+
+    def fetch_friend_id(self, user_id):
+        ids = []
+
+        try:
+            for friend_id in tweepy.Cursor(self.api.friends_ids, user_id=user_id).items():
+                ids.append({'friend_id': friend_id})
+
+        except tweepy.error.RateLimitError:
+            print('Exceed rate limit.')
+        except tweepy.error.TweepError as e:
+            print(traceback.format_exc())
+
+        return ids
+
+    def fetch_follower(self, user_id):
+        ids = []
+        users = []
+
+        try:
+            for friend_id in tweepy.Cursor(self.api.followers_ids, user_id=user_id).items():
+                ids.append(friend_id)
+
+            for i in range(0, len(ids), 100):
+                for user in self.api.lookup_users(user_ids=ids[i:i+100]):
+                    user = self.__convert_user_to_dict(user)
+                    users.append(user)
+
+        except tweepy.error.RateLimitError:
+            print('Exceed rate limit.')
+        except tweepy.error.TweepError as e:
+            print(traceback.format_exc())
+
+        return users
     
     def __convert_to_dict(self, tweet):
         return {
@@ -49,3 +83,15 @@ class TweepyWrapper:
             'hashtag': [tag['text'] for tag in tweet.entities['hashtags']],
             'created_at': tweet.created_at.strftime("%Y/%m/%d %H:%M:%S")
         }
+
+    def __convert_user_to_dict(self, user):
+        return {
+            'id': user._json['id'],
+            'screen_name': user._json['screen_name'],
+            'description': user._json['description'],
+            'followers_count': user._json['followers_count'],
+            'friends_count': user._json['friends_count'],
+            'favourites_count': user._json['favourites_count'],
+            'statuses_count': user._json['statuses_count']
+        }
+
